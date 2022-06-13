@@ -23,5 +23,5 @@ jobs:
           INCLUDE_SYMBOLS: false
           NUGET_KEY: ${{ secrets.SS_NUGET_API_KEY }}
           PACKAGE_NAME: 'SyncStream.Serializer'
-          PROJECT_FILE_PATH: 'SyncStream.Serializer/SyncStream.Serializer.csproj'
+          PROJECT_FILE_PATH: 'SyncStream.Serializer/SyncStream.Serializer/SyncStream.Serializer.csproj'
           TAG_COMMIT: false
