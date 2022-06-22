@@ -11,6 +11,25 @@ namespace SyncStream.Serializer;
 public class XmlSerializer
 {
     /// <summary>
+    /// This property contains the registered namespaces for the serializer
+    /// </summary>
+    private static XmlSerializerNamespaces _namespaces = new(new XmlQualifiedName[] {new(string.Empty, String.Empty)});
+
+    /// <summary>
+    /// This method adds a custom namespace to the serializer
+    /// </summary>
+    /// <param name="prefix">The prefix of the custom namespace</param>
+    /// <param name="uri">Optional namespace URI</param>
+    public static void AddNamespace(string prefix, string uri = null) =>
+        _namespaces.Add(prefix, uri ?? $"http://{prefix}");
+
+    /// <summary>
+    /// This method clears any custom namespaces from the serializer
+    /// </summary>
+    public static void ClearNamespaces() =>
+        _namespaces = new(new XmlQualifiedName[] {new(string.Empty, String.Empty)});
+
+    /// <summary>
     /// This method deserializes an XML response
     /// </summary>
     /// <param name="type"></param>
@@ -22,11 +41,24 @@ public class XmlSerializer
         // Check for XML
         if (string.IsNullOrEmpty(xml) || string.IsNullOrWhiteSpace(xml)) return null;
 
+        // Define our name table
+        NameTable nameTable = new();
+        // Define our namespace manager
+        XmlNamespaceManager xmlNamespaceManager = new XmlNamespaceManager(nameTable);
+
+        // Add the custom namespaces to the manager
+        _namespaces.ToArray().ToList().ForEach(ns => xmlNamespaceManager.AddNamespace(ns.Name, ns.Namespace));
+
+        // Define our parser context
+        XmlParserContext xmlContext = new XmlParserContext(null, xmlNamespaceManager, null, XmlSpace.None);
+
         // Define our XML writer settings
         XmlReaderSettings xmlReaderSettings = new()
         {
             // Close the stream when we're done
             CloseInput = true,
+            // Define our conformance level
+            ConformanceLevel = ConformanceLevel.Fragment,
             // Define our DTD processing
             DtdProcessing = DtdProcessing.Ignore,
             // Ignore comments
@@ -42,7 +74,7 @@ public class XmlSerializer
         System.Xml.Serialization.XmlSerializer xmlSerializer = new(type);
 
         // Define our reader
-        using XmlReader reader = XmlReader.Create(stringReader, xmlReaderSettings);
+        using XmlReader reader = XmlReader.Create(stringReader, xmlReaderSettings, xmlContext);
 
         // We're done, deserialize the XML and return the object
         return xmlSerializer.Deserialize(reader);
@@ -57,7 +89,7 @@ public class XmlSerializer
     /// <returns></returns>
     public static TPayload Deserialize<TPayload>(string xml, Encoding encoding = null)
         where TPayload : class, new() =>
-        (TPayload)Deserialize(typeof(TPayload), xml, encoding);
+        (TPayload) Deserialize(typeof(TPayload), xml, encoding);
 
     /// <summary>
     /// This method serializes the payload into XML for transmission
@@ -72,14 +104,11 @@ public class XmlSerializer
         // Ensure we have a payload
         if (payload is null) return null;
 
-        // Define our XML namespaces
-        XmlSerializerNamespaces xmlNamespaces = new();
-        // Add our default namespace
-        xmlNamespaces.Add("", "");
         // Define our XML serializer
         System.Xml.Serialization.XmlSerializer xmlSerializer = new(type);
         // Define our XML builder
         StringBuilder xmlBuilder = new();
+
         // Define our XML writer settings
         XmlWriterSettings xmlWriterSettings = new()
         {
@@ -105,7 +134,8 @@ public class XmlSerializer
         using XmlWriter xmlWriter = XmlWriter.Create(xmlBuilder, xmlWriterSettings);
 
         // Serialize the XML
-        xmlSerializer.Serialize(xmlWriter, payload, xmlNamespaces);
+        xmlSerializer.Serialize(xmlWriter, payload, _namespaces);
+
         // We're done with the writer
         xmlWriter.Close();
 
